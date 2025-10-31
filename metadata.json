@@ -1,0 +1,5 @@
+{
+  "name": "Cricket with AI",
+  "description": "A real-time cricket scoring application enhanced with AI-powered insights for scheduling, commentary, and analysis. Built with React, TypeScript, and the Gemini API.",
+  "requestFramePermissions": []
+}
