@@ -73,7 +73,7 @@ const CreateMatchModal: React.FC<{
         selection: string, 
         onSelectionChange: (val: string) => void,
         name: string,
-        onNameChange: (val: string)
+        onNameChange: (val: string) => void
     ) => (
         <div className="flex gap-2">
             <select
