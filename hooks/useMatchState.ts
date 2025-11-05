@@ -80,19 +80,22 @@ export const useMatchState = (initialState: MatchState, onStateChange: (newState
                 if (newBattingTeam) currentInningsData.battingTeam = newBattingTeam;
                 if (newBowlingTeam) currentInningsData.bowlingTeam = newBowlingTeam;
             }
-            const currentBattingTeam = currentInningsData.battingTeam;
-            const currentBowlingTeam = currentInningsData.bowlingTeam;
-            const updatedStriker = currentBattingTeam.players.find((p: Player) => p.id === newState.striker.id);
-            const updatedNonStriker = currentBattingTeam.players.find((p: Player) => p.id === newState.nonStriker.id);
-            const updatedBowler = currentBowlingTeam.players.find((p: Player) => p.id === newState.currentBowler.id);
-            if(updatedStriker) newState.striker = updatedStriker;
-            if(updatedNonStriker) newState.nonStriker = updatedNonStriker;
-            if(updatedBowler) newState.currentBowler = updatedBowler;
+            // Invalidate current players if rosters change, forcing re-selection if match has started
+            if (newState.isTossCompleted && !newState.nextActionRequired) {
+                 const currentBattingTeam = currentInningsData.battingTeam;
+                 const currentBowlingTeam = currentInningsData.bowlingTeam;
+                 const updatedStriker = currentBattingTeam.players.find((p: Player) => p.id === newState.striker.id);
+                 const updatedNonStriker = currentBattingTeam.players.find((p: Player) => p.id === newState.nonStriker.id);
+                 const updatedBowler = currentBowlingTeam.players.find((p: Player) => p.id === newState.currentBowler.id);
+                 if(updatedStriker) newState.striker = updatedStriker;
+                 if(updatedNonStriker) newState.nonStriker = updatedNonStriker;
+                 if(updatedBowler) newState.currentBowler = updatedBowler;
+            }
             return newState;
         });
     }, [updateState]);
 
-    const completeToss = useCallback((tossWinnerId: number, decision: 'bat' | 'bowl', maxOvers: number) => {
+    const completeToss = useCallback((tossWinnerId: number, decision: 'bat' | 'bowl') => {
         updateState(prevState => {
             const newState = JSON.parse(JSON.stringify(prevState));
             const tossWinner = newState.teams.find((t: Team) => t.id === tossWinnerId)!;
@@ -107,20 +110,72 @@ export const useMatchState = (initialState: MatchState, onStateChange: (newState
             }
             newState.tossWinner = tossWinner;
             newState.decision = decision;
-            newState.maxOvers = maxOvers;
             newState.innings[0]!.battingTeam = battingTeam;
             newState.innings[0]!.bowlingTeam = bowlingTeam;
-            newState.striker = battingTeam.players.find((p: Player) => !p.isOut)!;
-            newState.nonStriker = battingTeam.players.find((p: Player) => !p.isOut && p.id !== newState.striker.id)!;
-            newState.currentBowler = bowlingTeam.players.find((p: Player, i: number) => i >= 6) || bowlingTeam.players.slice(-1)[0];
             newState.isTossCompleted = true;
+            newState.nextActionRequired = 'SELECT_OPENERS';
+            return newState;
+        });
+    }, [updateState]);
+
+    const setOpeningBatsmen = useCallback((strikerId: number, nonStrikerId: number) => {
+        updateState(prevState => {
+            const newState = JSON.parse(JSON.stringify(prevState));
+            const currentInningsData = newState.innings[newState.currentInnings - 1]!;
+            newState.striker = currentInningsData.battingTeam.players.find((p: Player) => p.id === strikerId)!;
+            newState.nonStriker = currentInningsData.battingTeam.players.find((p: Player) => p.id === nonStrikerId)!;
+            newState.nextActionRequired = 'SELECT_BOWLER'; // Immediately require bowler selection
+            return newState;
+        });
+    }, [updateState]);
+
+    const setNextBatsman = useCallback((batsmanId: number) => {
+        updateState(prevState => {
+            const newState = JSON.parse(JSON.stringify(prevState));
+            const currentInningsData = newState.innings[newState.currentInnings - 1]!;
+            const nextBatsman = currentInningsData.battingTeam.players.find((p: Player) => p.id === batsmanId)!;
+            newState.striker = nextBatsman; // New batsman is always the striker
+            newState.nextActionRequired = null;
+            return newState;
+        });
+    }, [updateState]);
+    
+    const setBowler = useCallback((bowlerId: number) => {
+        updateState(prevState => {
+            const newState = JSON.parse(JSON.stringify(prevState));
+            const currentInningsData = newState.innings[newState.currentInnings - 1]!;
+            newState.currentBowler = currentInningsData.bowlingTeam.players.find((p: Player) => p.id === bowlerId)!;
+            newState.nextActionRequired = null;
+            return newState;
+        });
+    }, [updateState]);
+
+    const startSecondInnings = useCallback(() => {
+        updateState(prevState => {
+            const newState = JSON.parse(JSON.stringify(prevState));
+            
+            newState.isInningsBreak = false;
+            newState.currentInnings = 2;
+            
+            const newBattingTeam = JSON.parse(JSON.stringify(newState.innings[0]!.bowlingTeam));
+            const newBowlingTeam = JSON.parse(JSON.stringify(newState.innings[0]!.battingTeam));
+
+            newState.innings[1] = { 
+                battingTeam: newBattingTeam, 
+                bowlingTeam: newBowlingTeam, 
+                overs: [{ overNumber: 1, balls: [] }], 
+                fallOfWickets: [], 
+            };
+            
+            newState.nextActionRequired = 'SELECT_OPENERS';
+
             return newState;
         });
     }, [updateState]);
 
     const recordBall = useCallback((ballData: Partial<Ball> & { runs: number; isWicket: boolean }) => {
         updateState(prevState => {
-            if (prevState.isMatchOver) return prevState;
+            if (prevState.isMatchOver || prevState.isInningsBreak || prevState.nextActionRequired) return prevState;
             const newState = JSON.parse(JSON.stringify(prevState));
             const maxWickets = newState.playersPerTeam - 1;
             const currentInningsData = newState.innings[newState.currentInnings - 1] as Innings;
@@ -158,10 +213,7 @@ export const useMatchState = (initialState: MatchState, onStateChange: (newState
                 bowler.wickets += 1;
                 currentInningsData.fallOfWickets.push({ runs: currentInningsData.battingTeam.score, wicket: currentInningsData.battingTeam.wickets, over: currentInningsData.battingTeam.overs, player: striker.name, });
                 if (currentInningsData.battingTeam.wickets < maxWickets) {
-                    const nextBatsman = currentInningsData.battingTeam.players.find((p: Player) => !p.isOut && p.id !== newState.nonStriker.id);
-                    if (nextBatsman) {
-                        newState.striker = nextBatsman;
-                    }
+                    newState.nextActionRequired = 'SELECT_NEXT_BATSMAN';
                 }
             }
             if (ballData.runs % 2 !== 0 && !ballData.isExtra) {
@@ -177,9 +229,10 @@ export const useMatchState = (initialState: MatchState, onStateChange: (newState
                  if (String(bowler.overs).endsWith('.6')) {
                     bowler.overs = Math.ceil(bowler.overs);
                  }
-                const currentBowlerIndex = currentInningsData.bowlingTeam.players.findIndex(p => p.id === bowler.id);
-                const nextBowlerIndex = (currentBowlerIndex + 1) % currentInningsData.bowlingTeam.players.length;
-                newState.currentBowler = currentInningsData.bowlingTeam.players[nextBowlerIndex];
+                // Don't auto-select next bowler
+                if (!newState.nextActionRequired) { // only if not already waiting for next batsman
+                    newState.nextActionRequired = 'SELECT_BOWLER';
+                }
             } else if (!ballData.extraType) {
                  currentInningsData.battingTeam.overs = parseFloat((Math.floor(currentInningsData.battingTeam.overs) + currentOver.balls.length / 10).toFixed(1));
                  bowler.overs = parseFloat((Math.floor(bowler.overs) + currentOver.balls.length / 10).toFixed(1));
@@ -190,16 +243,12 @@ export const useMatchState = (initialState: MatchState, onStateChange: (newState
             const inningsOver = isAllOut || isOversFinished;
             if (newState.currentInnings === 1 && inningsOver) {
                 newState.target = currentInningsData.battingTeam.score + 1;
-                newState.currentInnings = 2;
-                const newBattingTeam = JSON.parse(JSON.stringify(newState.innings[0]!.bowlingTeam));
-                const newBowlingTeam = JSON.parse(JSON.stringify(newState.innings[0]!.battingTeam));
-                newState.innings[1] = { battingTeam: newBattingTeam, bowlingTeam: newBowlingTeam, overs: [{ overNumber: 1, balls: [] }], fallOfWickets: [], };
-                newState.striker = newBattingTeam.players.find((p: Player) => !p.isOut)!;
-                newState.nonStriker = newBattingTeam.players.find((p: Player) => !p.isOut && p.id !== newState.striker.id)!;
-                newState.currentBowler = newBowlingTeam.players.find((p: Player, i: number) => i >= 6) || newBowlingTeam.players.slice(-1)[0];
+                newState.isInningsBreak = true;
+                newState.nextActionRequired = null; // Clear action on innings break
             } else if (newState.currentInnings === 2 && (inningsOver || isTargetReached)) {
                 newState.isMatchOver = true;
                 newState.status = 'completed';
+                newState.nextActionRequired = null; // Clear action on match end
                 if(isTargetReached) {
                     newState.matchWinner = currentInningsData.battingTeam;
                 } else if (newState.target && currentInningsData.battingTeam.score < newState.target - 1) {
@@ -217,15 +266,22 @@ export const useMatchState = (initialState: MatchState, onStateChange: (newState
             currentInningsData.bowlingTeam = bowlerTeam;
             const finalBattingTeam = currentInningsData.battingTeam;
             const finalBowlingTeam = currentInningsData.bowlingTeam;
-            const updatedStriker = finalBattingTeam.players.find(p => p.id === newState.striker.id);
-            const updatedNonStriker = finalBattingTeam.players.find(p => p.id === newState.nonStriker.id);
-            const updatedBowler = finalBowlingTeam.players.find(p => p.id === newState.currentBowler.id);
-            if (updatedStriker) newState.striker = updatedStriker;
-            if (updatedNonStriker) newState.nonStriker = updatedNonStriker;
-            if (updatedBowler) newState.currentBowler = updatedBowler;
+            // Only update players if they exist
+            if (newState.striker) {
+                const updatedStriker = finalBattingTeam.players.find(p => p.id === newState.striker.id);
+                if (updatedStriker) newState.striker = updatedStriker;
+            }
+            if (newState.nonStriker) {
+                const updatedNonStriker = finalBattingTeam.players.find(p => p.id === newState.nonStriker.id);
+                if (updatedNonStriker) newState.nonStriker = updatedNonStriker;
+            }
+             if (newState.currentBowler) {
+                const updatedBowler = finalBowlingTeam.players.find(p => p.id === newState.currentBowler.id);
+                if (updatedBowler) newState.currentBowler = updatedBowler;
+            }
             return newState;
         });
     }, [updateState]);
 
-    return { matchState, recordBall, completeToss, updateRosters, undo, redo, canUndo, canRedo };
+    return { matchState, recordBall, completeToss, updateRosters, startSecondInnings, undo, redo, canUndo, canRedo, setOpeningBatsmen, setNextBatsman, setBowler };
 };

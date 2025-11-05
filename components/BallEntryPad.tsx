@@ -15,7 +15,7 @@ const ActionButton: React.FC<{
   <button
     onClick={onClick}
     disabled={disabled}
-    className={`w-full h-16 text-lg font-bold rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 flex items-center justify-center
+    className={`w-full h-14 sm:h-16 text-base sm:text-lg font-bold rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 flex items-center justify-center
       ${className} 
       ${disabled ? 'bg-gray-600 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
   >
@@ -29,10 +29,10 @@ const BallEntryPad: React.FC<BallEntryPadProps> = ({ onRecordBall, disabled }) =
   const wicket = 'OUT';
 
   return (
-    <div className="bg-slate-800 rounded-xl shadow-lg p-6">
-      <h3 className="text-xl font-bold mb-4 text-center text-gray-300">Record Ball</h3>
+    <div className="bg-slate-800 rounded-xl shadow-lg p-4 sm:p-6">
+      <h3 className="text-lg sm:text-xl font-bold mb-4 text-center text-gray-300">Record Ball</h3>
       
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {runs.map((run) => (
           <ActionButton
             key={run}
@@ -45,7 +45,7 @@ const BallEntryPad: React.FC<BallEntryPadProps> = ({ onRecordBall, disabled }) =
         ))}
       </div>
 
-      <div className="grid grid-cols-3 gap-3 mt-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-2 sm:mt-3">
         {extras.map((extra) => (
           <ActionButton
             key={extra}

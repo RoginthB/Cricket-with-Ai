@@ -71,7 +71,9 @@ export interface MatchState {
   date?: string;
   venue?: string;
   isTossCompleted: boolean;
+  isInningsBreak?: boolean;
   target: number | null;
+  nextActionRequired: 'SELECT_OPENERS' | 'SELECT_NEXT_BATSMAN' | 'SELECT_BOWLER' | null;
 }
 
 export interface ScheduledMatch {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MatchState, CustomTeam } from '../types';
-import { PlusIcon, CricketBallIcon, PencilIcon, TrashIcon } from './Icons';
+import { PlusIcon, CricketBallIcon, PencilIcon, TrashIcon, UsersIcon } from './Icons';
+import TeamEditorModal from './TeamEditorModal';
 
 interface HomeProps {
   matches: MatchState[];
@@ -16,12 +17,12 @@ const MatchCard: React.FC<{
     onEdit: () => void,
     onDelete: () => void,
 }> = ({ match, onStart, onEdit, onDelete }) => (
-    <div className="bg-slate-800 p-4 rounded-lg flex justify-between items-center transition-shadow hover:shadow-lg">
+    <div className="bg-slate-800 p-4 rounded-lg flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 transition-shadow hover:shadow-lg">
         <div>
             <p className="font-bold text-white">{match.description}</p>
             <p className="text-sm text-gray-400">{match.teams[0].name} vs {match.teams[1].name}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-end sm:self-center">
             {match.status === 'scheduled' && (
                 <>
                     <button onClick={onEdit} className="p-2 text-blue-400 hover:bg-slate-700 rounded-full"><PencilIcon className="w-5 h-5"/></button>
@@ -54,6 +55,8 @@ const CreateMatchModal: React.FC<{
             const savedTeams = localStorage.getItem('customTeams');
             if (savedTeams) {
                 setCustomTeams(JSON.parse(savedTeams));
+            } else {
+                setCustomTeams([]);
             }
         }
     }, [isOpen]);
@@ -73,9 +76,9 @@ const CreateMatchModal: React.FC<{
         selection: string, 
         onSelectionChange: (val: string) => void,
         name: string,
-        onNameChange: (val: string) => void
+        onNameChange: (val: string)
     ) => (
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
             <select
                 value={selection}
                 onChange={e => onSelectionChange(e.target.value)}
@@ -128,19 +131,38 @@ const CreateMatchModal: React.FC<{
 
 const Home: React.FC<HomeProps> = ({ matches, onCreateMatch, onStartScoring, onEditMatch, onDeleteMatch }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isTeamEditorOpen, setIsTeamEditorOpen] = useState(false);
+  const [teamUpdateTimestamp, setTeamUpdateTimestamp] = useState(Date.now());
+
   const scheduledMatches = matches.filter(m => m.status === 'scheduled');
   const liveMatches = matches.filter(m => m.status === 'live');
 
   return (
     <div className="container mx-auto max-w-4xl py-8 px-4">
-        <CreateMatchModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onCreate={onCreateMatch} />
+        <CreateMatchModal 
+            key={teamUpdateTimestamp}
+            isOpen={isModalOpen} 
+            onClose={() => setIsModalOpen(false)} 
+            onCreate={onCreateMatch} 
+        />
+        <TeamEditorModal 
+            isOpen={isTeamEditorOpen}
+            onClose={() => setIsTeamEditorOpen(false)}
+            onTeamsUpdated={() => setTeamUpdateTimestamp(Date.now())}
+        />
       
         <div className="flex justify-between items-center mb-8">
-            <h1 className="text-4xl font-bold text-white">Dashboard</h1>
-            <button onClick={() => setIsModalOpen(true)} className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-5 rounded-lg flex items-center gap-2 transition-colors">
-                <PlusIcon className="w-6 h-6" />
-                Create Match
-            </button>
+            <h1 className="text-3xl sm:text-4xl font-bold text-white">Dashboard</h1>
+            <div className="flex items-center gap-3">
+                 <button onClick={() => setIsTeamEditorOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-5 rounded-lg flex items-center gap-2 transition-colors">
+                    <UsersIcon className="w-6 h-6" />
+                    Manage Teams
+                </button>
+                <button onClick={() => setIsModalOpen(true)} className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-5 rounded-lg flex items-center gap-2 transition-colors">
+                    <PlusIcon className="w-6 h-6" />
+                    Create Match
+                </button>
+            </div>
         </div>
 
         <div className="space-y-8">

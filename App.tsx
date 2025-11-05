@@ -76,10 +76,7 @@ const App: React.FC = () => {
 
   const handleUpdateMatch = useCallback((updatedMatch: MatchState) => {
     setMatches(prevMatches => prevMatches.map(m => m.id === updatedMatch.id ? updatedMatch : m));
-    if (updatedMatch.isMatchOver && activeMatchId === updatedMatch.id) {
-      setActiveMatchId(null);
-    }
-  }, [activeMatchId]);
+  }, []);
   
   const handleUpdateScheduledMatch = (updatedMatch: MatchState) => {
     setMatches(prev => prev.map(m => m.id === updatedMatch.id ? updatedMatch : m));
@@ -116,16 +113,18 @@ const App: React.FC = () => {
         teams: [team1, team2],
         innings: [{ battingTeam: team1, bowlingTeam: team2, overs: [{ overNumber: 1, balls: [] }], fallOfWickets: [] }, null],
         currentInnings: 1,
-        striker: team1.players[0],
-        nonStriker: team1.players[1] || team1.players[0], // Handle case of 1 player team
-        currentBowler: team2.players.find((p,i) => i >= 6) || team2.players.slice(-1)[0],
+        striker: null!,
+        nonStriker: null!,
+        currentBowler: null!,
         tossWinner: null,
         decision: null,
         isMatchOver: false,
         maxOvers,
         playersPerTeam,
         isTossCompleted: false,
+        isInningsBreak: false,
         target: null,
+        nextActionRequired: null,
       };
 
       setMatches(prev => [...prev, newMatch]);
@@ -165,13 +164,16 @@ const App: React.FC = () => {
               teams: [team1, team2],
               innings: [{ battingTeam: team1, bowlingTeam: team2, overs: [{ overNumber: 1, balls: [] }], fallOfWickets: [] }, null],
               currentInnings: 1,
-              striker: team1.players[0], 
-              nonStriker: team1.players[1] || team1.players[0], 
-              currentBowler: team2.players.find((p, i) => i >= 6) || team2.players.slice(-1)[0],
+              striker: null!, 
+              nonStriker: null!, 
+              currentBowler: null!,
               tossWinner: null, decision: null, isMatchOver: false, 
               maxOvers, 
               playersPerTeam, 
-              isTossCompleted: false, target: null,
+              isTossCompleted: false, 
+              isInningsBreak: false,
+              target: null,
+              nextActionRequired: null,
           };
       });
       // Avoid duplicates
@@ -188,7 +190,15 @@ const App: React.FC = () => {
     switch(currentView) {
       case 'scoring':
         return activeMatch 
-          ? <ScoringView key={activeMatch.id} match={activeMatch} onUpdate={handleUpdateMatch} /> 
+          ? <ScoringView 
+              key={activeMatch.id} 
+              match={activeMatch} 
+              onUpdate={handleUpdateMatch}
+              onMatchFinished={() => {
+                setActiveMatchId(null);
+                setCurrentView('history');
+              }}
+            /> 
           : <div className="text-center p-8 text-gray-400">No active match selected. Go to Home to start or resume a match.</div>;
       case 'scheduler':
         return <AIScheduler 

@@ -16,7 +16,7 @@ const NavItem: React.FC<{
   return (
     <button
       onClick={() => onClick(viewName)}
-      className={`px-3 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
+      className={`px-2 sm:px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors duration-200 ${
         isActive
           ? 'bg-green-500 text-white'
           : 'text-gray-300 hover:bg-slate-700 hover:text-white'
@@ -34,7 +34,7 @@ const Header: React.FC<HeaderProps> = ({ currentView, onNavigate }) => {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center">
             <CricketBallIcon className="h-8 w-8 text-green-500" />
-            <span className="ml-3 text-xl font-bold text-white">Cricket with AI</span>
+            <span className="ml-2 sm:ml-3 text-lg sm:text-xl font-bold text-white">Cricket with AI</span>
           </div>
           <div className="flex items-center space-x-1 sm:space-x-2">
             <NavItem label="Home" viewName="home" currentView={currentView} onClick={onNavigate} />

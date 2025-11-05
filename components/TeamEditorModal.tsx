@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CustomTeam, PlayerRosterItem } from '../types';
-import { UsersIcon, PlusIcon, TrashIcon, PencilIcon, SaveIcon } from './Icons';
+import { UsersIcon, PlusIcon, TrashIcon, PencilIcon, SaveIcon, UndoIcon, RedoIcon } from './Icons';
+import { useHistoryState } from '../hooks/useHistoryState';
 
 interface TeamEditorModalProps {
   isOpen: boolean;
@@ -13,21 +14,27 @@ const TeamEditor: React.FC<{
     onSave: (team: CustomTeam) => void;
     onCancel: () => void;
 }> = ({ team, onSave, onCancel }) => {
-    const [editableTeam, setEditableTeam] = useState<CustomTeam>(team);
+    const { state: editableTeam, updateState: setEditableTeam, undo, redo, canUndo, canRedo, resetState } = useHistoryState<CustomTeam>(team);
+
+    useEffect(() => {
+        resetState(team);
+    }, [team, resetState]);
 
     const handlePlayerChange = (index: number, name: string) => {
-        const newPlayers = [...editableTeam.players];
-        newPlayers[index] = { ...newPlayers[index], name };
-        setEditableTeam({ ...editableTeam, players: newPlayers });
+        setEditableTeam(prev => {
+            const newPlayers = [...prev.players];
+            newPlayers[index] = { ...newPlayers[index], name };
+            return { ...prev, players: newPlayers };
+        });
     };
 
     const handleAddPlayer = () => {
         const newPlayer: PlayerRosterItem = { id: Date.now(), name: '' };
-        setEditableTeam({ ...editableTeam, players: [...editableTeam.players, newPlayer] });
+        setEditableTeam(prev => ({ ...prev, players: [...prev.players, newPlayer] }));
     };
 
     const handleRemovePlayer = (id: number) => {
-        setEditableTeam({ ...editableTeam, players: editableTeam.players.filter(p => p.id !== id) });
+        setEditableTeam(prev => ({ ...prev, players: prev.players.filter(p => p.id !== id) }));
     };
 
     return (
@@ -38,7 +45,7 @@ const TeamEditor: React.FC<{
                     type="text"
                     placeholder="Team Name"
                     value={editableTeam.name}
-                    onChange={e => setEditableTeam({ ...editableTeam, name: e.target.value })}
+                    onChange={e => setEditableTeam(prev => ({ ...prev, name: e.target.value }))}
                     className="w-full p-3 bg-slate-900 border border-slate-600 rounded-lg text-white"
                 />
                 <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
@@ -61,9 +68,19 @@ const TeamEditor: React.FC<{
                     <PlusIcon className="w-5 h-5" /> Add Player
                 </button>
             </div>
-            <div className="flex justify-end gap-4 mt-6">
-                <button onClick={onCancel} className="bg-slate-600 hover:bg-slate-700 font-bold py-2 px-6 rounded-lg">Cancel</button>
-                <button onClick={() => onSave(editableTeam)} className="bg-green-600 hover:bg-green-700 font-bold py-2 px-6 rounded-lg">Save Team</button>
+            <div className="flex justify-between items-center mt-6">
+                <div className="flex gap-2">
+                    <button onClick={undo} disabled={!canUndo} className="p-2 bg-slate-600 hover:bg-slate-500 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed text-white">
+                        <UndoIcon className="w-5 h-5"/>
+                    </button>
+                    <button onClick={redo} disabled={!canRedo} className="p-2 bg-slate-600 hover:bg-slate-500 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed text-white">
+                        <RedoIcon className="w-5 h-5"/>
+                    </button>
+                </div>
+                <div className="flex gap-4">
+                    <button onClick={onCancel} className="bg-slate-600 hover:bg-slate-700 font-bold py-2 px-6 rounded-lg">Cancel</button>
+                    <button onClick={() => onSave(editableTeam)} className="bg-green-600 hover:bg-green-700 font-bold py-2 px-6 rounded-lg">Save Team</button>
+                </div>
             </div>
         </div>
     );

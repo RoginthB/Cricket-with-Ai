@@ -130,12 +130,12 @@ const AIScheduler: React.FC<AISchedulerProps> = ({ matches, onScheduleGenerated,
               <h3 className="text-2xl font-bold mb-4 text-white">Current Scheduled Matches</h3>
               <div className="space-y-3">
                  {scheduledMatches.map(match => (
-                    <div key={match.id} className="bg-slate-900 p-3 rounded-lg flex justify-between items-center">
+                    <div key={match.id} className="bg-slate-900 p-3 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                         <div>
                             <p className="font-semibold text-white">{match.description}</p>
                             <p className="text-sm text-gray-400">{match.date} @ {match.venue}</p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 self-end sm:self-center">
                             <button onClick={() => onEditMatch(match)} className="p-2 text-blue-400 hover:text-blue-300"><PencilIcon className="w-5 h-5"/></button>
                             <button onClick={() => onDeleteMatch(match.id)} className="p-2 text-red-400 hover:text-red-600"><TrashIcon className="w-5 h-5"/></button>
                         </div>

@@ -31,14 +31,14 @@ const MatchHistory: React.FC<MatchHistoryProps> = ({ matches }) => {
         <div className="space-y-4">
             {completedMatches.length > 0 ? (
                 completedMatches.slice().reverse().map(match => (
-                    <div key={match.id} className="bg-slate-800 p-4 rounded-lg flex justify-between items-center">
+                    <div key={match.id} className="bg-slate-800 p-4 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div>
                             <p className="font-bold text-white">{match.description}</p>
                             <p className="text-sm text-gray-400">
                                 {match.matchWinner ? `${match.matchWinner.name} won` : 'Match Tied'}
                             </p>
                         </div>
-                        <button onClick={() => setSelectedMatch(match)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">
+                        <button onClick={() => setSelectedMatch(match)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg self-end sm:self-auto">
                             View Summary
                         </button>
                     </div>

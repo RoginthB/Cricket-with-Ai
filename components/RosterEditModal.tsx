@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { Team } from '../types';
-import { UsersIcon } from './Icons';
+import { UsersIcon, UndoIcon, RedoIcon } from './Icons';
+import { useHistoryState } from '../hooks/useHistoryState';
 
 interface RosterEditModalProps {
   isOpen: boolean;
@@ -10,20 +11,24 @@ interface RosterEditModalProps {
 }
 
 const RosterEditModal: React.FC<RosterEditModalProps> = ({ isOpen, onClose, teams, onSave }) => {
-  const [localTeams, setLocalTeams] = useState<[Team, Team]>(JSON.parse(JSON.stringify(teams)));
+  const { state: localTeams, updateState, undo, redo, canUndo, canRedo, resetState } = useHistoryState<[Team, Team]>(JSON.parse(JSON.stringify(teams)));
 
   useEffect(() => {
     // Sync with prop changes when modal is opened
-    setLocalTeams(JSON.parse(JSON.stringify(teams)));
-  }, [teams, isOpen]);
+    if (isOpen) {
+        resetState(JSON.parse(JSON.stringify(teams)));
+    }
+  }, [teams, isOpen, resetState]);
 
   const handlePlayerNameChange = (teamIndex: 0 | 1, playerId: number, newName: string) => {
-    const newTeams = [...localTeams] as [Team, Team];
-    const playerIndex = newTeams[teamIndex].players.findIndex(p => p.id === playerId);
-    if (playerIndex > -1) {
-      newTeams[teamIndex].players[playerIndex].name = newName;
-      setLocalTeams(newTeams);
-    }
+    updateState(prevTeams => {
+        const newTeams = JSON.parse(JSON.stringify(prevTeams)) as [Team, Team];
+        const playerIndex = newTeams[teamIndex].players.findIndex(p => p.id === playerId);
+        if (playerIndex > -1) {
+            newTeams[teamIndex].players[playerIndex].name = newName;
+        }
+        return newTeams;
+    });
   };
 
   const handleSave = () => {
@@ -62,9 +67,19 @@ const RosterEditModal: React.FC<RosterEditModalProps> = ({ isOpen, onClose, team
           ))}
         </div>
 
-        <div className="p-6 flex justify-end gap-4 border-t border-slate-700">
-          <button onClick={onClose} className="bg-slate-600 hover:bg-slate-700 font-bold py-2 px-6 rounded-lg">Cancel</button>
-          <button onClick={handleSave} className="bg-green-600 hover:bg-green-700 font-bold py-2 px-6 rounded-lg">Save Rosters</button>
+        <div className="p-6 flex justify-between items-center border-t border-slate-700">
+            <div className="flex gap-2">
+                <button onClick={undo} disabled={!canUndo} className="p-2 bg-slate-600 hover:bg-slate-500 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed text-white">
+                    <UndoIcon className="w-5 h-5"/>
+                </button>
+                <button onClick={redo} disabled={!canRedo} className="p-2 bg-slate-600 hover:bg-slate-500 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed text-white">
+                    <RedoIcon className="w-5 h-5"/>
+                </button>
+            </div>
+            <div className="flex gap-4">
+              <button onClick={onClose} className="bg-slate-600 hover:bg-slate-700 font-bold py-2 px-6 rounded-lg">Cancel</button>
+              <button onClick={handleSave} className="bg-green-600 hover:bg-green-700 font-bold py-2 px-6 rounded-lg">Save Rosters</button>
+            </div>
         </div>
       </div>
     </div>

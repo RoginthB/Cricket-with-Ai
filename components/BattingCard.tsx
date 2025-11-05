@@ -1,20 +1,43 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Innings, Player } from '../types';
 
 interface BattingCardProps {
   inningsData: Innings;
+  defaultExpanded?: boolean;
+  collapsible?: boolean;
 }
 
-const BattingCard: React.FC<BattingCardProps> = ({ inningsData }) => {
+const BattingCard: React.FC<BattingCardProps> = ({ inningsData, defaultExpanded = false, collapsible = true }) => {
   const { battingTeam, fallOfWickets } = inningsData;
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded || !collapsible);
+
+  const sortedPlayers = useMemo(() => {
+    const outPlayerNames = fallOfWickets.map(fow => fow.player);
+    
+    const outPlayers = battingTeam.players
+        .filter(p => p.isOut)
+        .sort((a, b) => outPlayerNames.indexOf(a.name) - outPlayerNames.indexOf(b.name));
+
+    const currentBatsmen = battingTeam.players.filter(p => p.balls > 0 && !p.isOut);
+
+    const yetToBatPlayers = battingTeam.players.filter(p => p.balls === 0 && !p.isOut);
+
+    return [...outPlayers, ...currentBatsmen, ...yetToBatPlayers];
+  }, [battingTeam.players, fallOfWickets]);
+
+
+  const playersWhoBatted = sortedPlayers.filter(p => p.balls > 0 || p.isOut);
+  const playersToShow = (isExpanded || !collapsible) ? sortedPlayers : playersWhoBatted;
+  const canBeCompact = sortedPlayers.length > playersWhoBatted.length;
   
   const renderBatsmanRow = (player: Player) => {
     const strikeRate = player.balls > 0 ? ((player.runs / player.balls) * 100).toFixed(2) : '0.00';
-    let status = <span className="text-xs text-gray-500">Yet to bat</span>;
-    if (player.balls > 0 || player.isOut) {
-      status = player.isOut 
-        ? <span className="text-xs text-gray-400">{player.outMethod}</span>
-        : <span className="text-xs text-green-400">not out</span>;
+    
+    let status = null;
+    if (player.isOut) {
+      status = <span className="text-xs text-gray-400">{player.outMethod}</span>;
+    } else if (player.balls > 0) {
+      status = <span className="text-xs text-green-400">not out</span>;
     }
 
     return (
@@ -49,7 +72,7 @@ const BattingCard: React.FC<BattingCardProps> = ({ inningsData }) => {
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-700">
-          {battingTeam.players.map(renderBatsmanRow)}
+          {playersToShow.map(renderBatsmanRow)}
         </tbody>
       </table>
       <div className="border-t border-slate-600 mt-4 pt-4 px-4 space-y-2">
@@ -68,6 +91,16 @@ const BattingCard: React.FC<BattingCardProps> = ({ inningsData }) => {
                     {fallOfWickets.map(fow => `${fow.wicket}-${fow.runs} (${fow.player}, ${fow.over.toFixed(1)})`).join(', ')}
                 </p>
             </div>
+        )}
+        {canBeCompact && collapsible && (
+          <div className="pt-2 text-center">
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="text-sm text-blue-400 hover:text-blue-300 font-semibold focus:outline-none"
+            >
+              {isExpanded ? 'Show Compact Scorecard' : 'Show Full Scorecard'}
+            </button>
+          </div>
         )}
       </div>
     </div>

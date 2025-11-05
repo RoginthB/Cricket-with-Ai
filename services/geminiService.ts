@@ -214,3 +214,77 @@ export const generateMatchSummary = async (matchState: MatchState): Promise<Matc
         throw new Error("Failed to generate match summary.");
     }
 };
+
+export const generateMatchHighlights = async (matchState: MatchState): Promise<string> => {
+    try {
+        const { matchWinner, innings, playersPerTeam = 11 } = matchState;
+        const firstInnings = innings[0]!;
+        const secondInnings = innings[1];
+
+        let margin = "";
+        if (matchWinner) {
+            if (secondInnings && matchWinner.id === secondInnings.battingTeam.id) {
+                const wicketsLeft = (playersPerTeam - 1) - secondInnings.battingTeam.wickets;
+                margin = `won by ${wicketsLeft} wicket${wicketsLeft !== 1 ? 's' : ''}`;
+            } else if (firstInnings && matchWinner.id === firstInnings.battingTeam.id) {
+                const runDifference = firstInnings.battingTeam.score - (secondInnings ? secondInnings.battingTeam.score : 0);
+                margin = `won by ${runDifference} run${runDifference !== 1 ? 's' : ''}`;
+            }
+        } else {
+            margin = "Match Tied";
+        }
+
+        const formatPlayerStats = (players: any[]) => players.map(p => ({ 
+            name: p.name, 
+            runs: p.runs, 
+            balls: p.balls, 
+            wickets: p.wickets, 
+            runsConceded: p.runsConceded, 
+            overs: p.overs 
+        }));
+
+        const innings1Context = `
+        Innings 1 (${firstInnings.battingTeam.name}):
+        - Final Score: ${firstInnings.battingTeam.score}/${firstInnings.battingTeam.wickets} (${firstInnings.battingTeam.overs.toFixed(1)} overs)
+        - Batting: ${JSON.stringify(formatPlayerStats(firstInnings.battingTeam.players))}
+        - Bowling: ${JSON.stringify(formatPlayerStats(firstInnings.bowlingTeam.players))}
+        - Fall of Wickets: ${JSON.stringify(firstInnings.fallOfWickets)}
+        `;
+
+        const innings2Context = secondInnings ? `
+        Innings 2 (${secondInnings.battingTeam.name}):
+        - Final Score: ${secondInnings.battingTeam.score}/${secondInnings.battingTeam.wickets} (${secondInnings.battingTeam.overs.toFixed(1)} overs)
+        - Batting: ${JSON.stringify(formatPlayerStats(secondInnings.battingTeam.players))}
+        - Bowling: ${JSON.stringify(formatPlayerStats(secondInnings.bowlingTeam.players))}
+        - Fall of Wickets: ${JSON.stringify(secondInnings.fallOfWickets)}
+        ` : '';
+
+        const prompt = `
+        You are an expert cricket commentator. Based on the detailed match data below, generate a short, exciting, bulleted list of the top 3-5 highlights of the match. Focus on turning points like crucial wickets, quickfire fifties, sixes at important moments, or hat-tricks. Use markdown for the bulleted list.
+
+        Match Result:
+        - ${matchWinner ? `${matchWinner.name} ${margin}`: 'Match Tied'}
+
+        ${innings1Context}
+        ${innings2Context}
+
+        Example Output:
+        * **8.4 Overs:** Virat Kohli reaches his fifty with a glorious cover drive!
+        * **12.1 Overs:** Turning Point! Jasprit Bumrah castles the set batsman with a searing yorker.
+        * **19.5 Overs:** Andre Russell seals the victory with a monstrous six over long-on!
+
+        Generate the highlights now:
+        `;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: prompt,
+        });
+
+        return response.text.trim();
+
+    } catch (error) {
+        console.error("Error generating match highlights:", error);
+        throw new Error("Failed to generate match highlights.");
+    }
+};

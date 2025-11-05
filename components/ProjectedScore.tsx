@@ -42,10 +42,10 @@ const ProjectedScore: React.FC<ProjectedScoreProps> = ({ matchState }) => {
             <p className="text-gray-400 mb-4 text-sm">
                 Based on the current run rate, wickets in hand, and player stats, the AI can project the final score for the first innings.
             </p>
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 <button
                     onClick={handleGenerate}
-                    disabled={isLoading || matchState.isMatchOver}
+                    disabled={isLoading || matchState.isMatchOver || !!matchState.nextActionRequired}
                     className="flex-shrink-0 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-600 text-white font-bold py-2 px-5 rounded-lg transition-colors duration-300"
                 >
                     {isLoading ? 'Calculating...' : 'Calculate Projection'}
@@ -67,10 +67,10 @@ const ProjectedScore: React.FC<ProjectedScoreProps> = ({ matchState }) => {
             <p className="text-gray-400 mb-4 text-sm">
                 The chase is on! The AI can analyze the current situation to predict which team has the upper hand.
             </p>
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
                 <button
                     onClick={handleGenerate}
-                    disabled={isLoading || matchState.isMatchOver}
+                    disabled={isLoading || matchState.isMatchOver || !!matchState.nextActionRequired}
                     className="flex-shrink-0 bg-purple-600 hover:bg-purple-700 disabled:bg-slate-600 text-white font-bold py-2 px-5 rounded-lg transition-colors duration-300"
                 >
                     {isLoading ? 'Analyzing...' : 'Predict Winner'}
@@ -79,7 +79,7 @@ const ProjectedScore: React.FC<ProjectedScoreProps> = ({ matchState }) => {
                     <div className="w-8 h-8 border-4 border-purple-400 border-t-transparent rounded-full animate-spin"></div>
                 )}
                 {prediction && !isLoading && (
-                    <div className="bg-slate-900 p-3 rounded-lg flex-grow">
+                    <div className="bg-slate-900 p-3 rounded-lg flex-grow w-full sm:w-auto">
                         <p className="text-xs text-gray-400">AI Prediction</p>
                         <p className="text-lg font-semibold text-yellow-400">{prediction}</p>
                     </div>

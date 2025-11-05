@@ -77,47 +77,49 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ matchState }) => {
   return (
     <div className="bg-slate-800 rounded-xl shadow-lg p-4 sm:p-6">
       {/* Team Scores */}
-      <div className="flex justify-between items-center mb-4">
-        <div className="text-left">
-          <p className="text-gray-400 text-sm">Batting</p>
-          <h2 className="text-2xl sm:text-3xl font-bold text-white">{battingTeam.name}</h2>
-        </div>
-        <div className="text-right">
-          <p className="text-4xl sm:text-5xl font-extrabold tracking-tighter">
-            {battingTeam.score}
-            <span className="text-2xl sm:text-3xl text-gray-400 font-medium">/{battingTeam.wickets}</span>
-          </p>
-          <p className="text-gray-300 text-base sm:text-lg">({battingTeam.overs.toFixed(1)} Overs)</p>
-        </div>
+      <div className="space-y-3 mb-4">
+        {matchState.teams.map((team) => (
+            <div key={team.id} className="flex justify-between items-center bg-slate-900/50 p-3 rounded-lg">
+                <h2 className="text-lg sm:text-xl font-bold text-white">{team.name}</h2>
+                <div className="text-right">
+                    <p className="text-xl sm:text-2xl font-extrabold tracking-tighter">
+                        {team.score}
+                        <span className="text-lg sm:text-xl text-gray-400 font-medium">/{team.wickets}</span>
+                    </p>
+                    <p className="text-xs sm:text-sm text-gray-300">({team.overs.toFixed(1)} Overs)</p>
+                </div>
+            </div>
+        ))}
       </div>
+
 
        {/* Rates Display */}
        <div className="border-t border-b border-slate-700 py-3 my-4 grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
         <div>
             <p className="text-xs text-gray-400 uppercase font-semibold">CRR</p>
-            <p className="text-lg font-bold text-white">{crr}</p>
+            <p className="text-base sm:text-lg font-bold text-white">{crr}</p>
         </div>
         {target && (
             <>
                 <div>
                     <p className="text-xs text-gray-400 uppercase font-semibold">Target</p>
-                    <p className="text-lg font-bold text-yellow-400">{target}</p>
+                    <p className="text-base sm:text-lg font-bold text-yellow-400">{target}</p>
                 </div>
                 <div>
                     <p className="text-xs text-gray-400 uppercase font-semibold">RRR</p>
-                    <p className="text-lg font-bold text-white">{rrr}</p>
+                    <p className="text-base sm:text-lg font-bold text-white">{rrr}</p>
                 </div>
                 <div>
                     <p className="text-xs text-gray-400 uppercase font-semibold">Balls Left</p>
-                    <p className="text-lg font-bold text-white">{ballsRemaining}</p>
+                    <p className="text-base sm:text-lg font-bold text-white">{ballsRemaining}</p>
                 </div>
             </>
         )}
       </div>
 
       {/* Batting Scorecard */}
-      <div className="mb-4">
-        <table className="w-full text-left">
+      <div className="mb-4 overflow-x-auto">
+        <table className="w-full text-left min-w-[500px]">
             <thead>
                 <tr className="border-b border-slate-600">
                     <th className="px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-400 uppercase">Batsman</th>
@@ -141,12 +143,14 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ matchState }) => {
          <div className="flex justify-between items-center mb-3">
           <div className="flex items-center">
              <CricketBallIcon className="w-5 h-5 mr-2 text-red-500"/>
-             <p className="font-semibold">{currentBowler.name}</p>
+             <p className="font-semibold">{currentBowler?.name || 'N/A'}</p>
           </div>
-          <p className="font-mono">{currentBowler.wickets}/{currentBowler.runsConceded} ({currentBowler.overs.toFixed(1)})</p>
+          <p className="font-mono">
+            {currentBowler ? `${currentBowler.wickets}/${currentBowler.runsConceded} (${currentBowler.overs.toFixed(1)})` : '-/- (-.-)'}
+          </p>
         </div>
-        <div className="flex justify-start items-center space-x-2">
-            <p className="text-sm font-medium text-gray-400 mr-2">This Over:</p>
+        <div className="flex justify-start items-center flex-wrap gap-2">
+            <p className="text-sm font-medium text-gray-400">This Over:</p>
             {lastOver && lastOver.balls.map(renderBall)}
         </div>
       </div>
