@@ -288,3 +288,53 @@ export const generateMatchHighlights = async (matchState: MatchState): Promise<s
         throw new Error("Failed to generate match highlights.");
     }
 };
+
+
+export const generateTacticalAdvice = async (matchState: MatchState): Promise<string> => {
+  try {
+    const { currentInnings, innings, striker, nonStriker, currentBowler, maxOvers, target } = matchState;
+    const currentInningsData = innings[currentInnings - 1]!;
+    const battingTeam = currentInningsData.battingTeam;
+    const bowlingTeam = currentInningsData.bowlingTeam;
+
+    const availableBowlers = bowlingTeam.players
+      .filter(p => p.id !== currentBowler.id)
+      .map(p => `${p.name} (${p.wickets}/${p.runsConceded} in ${p.overs.toFixed(1)} overs)`)
+      .join(', ');
+
+    const chaseContext = target ? `
+      - Chasing a target of: ${target}
+      - Runs needed: ${target - battingTeam.score} from ${(maxOvers * 6) - (Math.floor(battingTeam.overs) * 6 + (battingTeam.overs * 10 % 10))} balls.
+    ` : '';
+
+    const context = `
+      Current Match Situation:
+      - Batting Team: ${battingTeam.name} - ${battingTeam.score}/${battingTeam.wickets} in ${battingTeam.overs.toFixed(1)}/${maxOvers} overs.
+      ${chaseContext}
+      - Striker: ${striker.name} - ${striker.runs} (${striker.balls} balls)
+      - Non-Striker: ${nonStriker.name} - ${nonStriker.runs} (${nonStriker.balls} balls)
+      - Current Bowler: ${currentBowler.name} - ${currentBowler.wickets}/${currentBowler.runsConceded} (${currentBowler.overs.toFixed(1)} overs)
+      - Available bowlers for ${bowlingTeam.name}: ${availableBowlers}
+    `;
+
+    const prompt = `
+    You are a world-class cricket captain and tactician. Based on the following live match data, provide a single, concise, and actionable tactical suggestion for the bowling team's captain. This could be a bowling change, a field placement adjustment, or a specific plan against a batsman. Provide a brief justification.
+
+    ${context}
+
+    Example: "Bring in a spinner like Yuzvendra Chahal. The pitch is turning and the batsmen are looking to attack the pacers."
+
+    Your tactical suggestion:
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+    
+    return response.text.trim();
+  } catch (error) {
+    console.error("Error generating tactical advice:", error);
+    throw new Error("Failed to get tactical advice from AI.");
+  }
+};

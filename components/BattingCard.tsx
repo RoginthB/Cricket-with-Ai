@@ -87,9 +87,14 @@ const BattingCard: React.FC<BattingCardProps> = ({ inningsData, defaultExpanded 
          {fallOfWickets.length > 0 && (
             <div className="pt-2">
                 <p className="font-semibold text-gray-400 text-sm mb-1">Fall of Wickets:</p>
-                <p className="text-xs text-gray-300 leading-relaxed">
-                    {fallOfWickets.map(fow => `${fow.wicket}-${fow.runs} (${fow.player}, ${fow.over.toFixed(1)})`).join(', ')}
-                </p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-300">
+                    {fallOfWickets.map(fow => (
+                        <span key={fow.wicket}>
+                            <span className="font-semibold text-white">{fow.wicket}-{fow.runs}</span>
+                            <span className="text-gray-400"> ({fow.player}, {fow.over.toFixed(1)})</span>
+                        </span>
+                    ))}
+                </div>
             </div>
         )}
         {canBeCompact && collapsible && (

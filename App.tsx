@@ -5,9 +5,11 @@ import Home from './components/Home';
 import ScoringView from './components/ScoringView';
 import MatchHistory from './components/MatchHistory';
 import EditMatchModal from './components/EditMatchModal';
+import PlayersView from './components/PlayersView';
 import { MatchState, Player, Team, ScheduledMatch, CustomTeam, PlayerRosterItem } from './types';
+import { updateStatsAfterMatch } from './services/statsService';
 
-type View = 'home' | 'scoring' | 'scheduler' | 'history';
+type View = 'home' | 'scoring' | 'scheduler' | 'history' | 'players';
 
 const rosterToPlayers = (roster: PlayerRosterItem[], teamName: string, idStart: number): Player[] =>
   roster.map((player, i) => ({
@@ -60,6 +62,28 @@ const App: React.FC = () => {
       console.error("Failed to save matches to localStorage", error);
     }
   }, [matches]);
+
+  // Process stats for any completed matches that haven't been processed yet
+  useEffect(() => {
+    const matchesToProcess = matches.filter(m => m.status === 'completed' && !m.statsProcessed);
+    
+    if (matchesToProcess.length > 0) {
+        matchesToProcess.forEach(match => {
+            updateStatsAfterMatch(match);
+        });
+
+        setMatches(prevMatches => 
+            prevMatches.map(m => {
+                const needsProcessing = matchesToProcess.some(processed => processed.id === m.id);
+                if (needsProcessing) {
+                    return { ...m, statsProcessed: true };
+                }
+                return m;
+            })
+        );
+    }
+  }, [matches]);
+
 
   // Save active match ID
   useEffect(() => {
@@ -125,6 +149,7 @@ const App: React.FC = () => {
         isInningsBreak: false,
         target: null,
         nextActionRequired: null,
+        statsProcessed: false,
       };
 
       setMatches(prev => [...prev, newMatch]);
@@ -174,6 +199,7 @@ const App: React.FC = () => {
               isInningsBreak: false,
               target: null,
               nextActionRequired: null,
+              statsProcessed: false,
           };
       });
       // Avoid duplicates
@@ -209,6 +235,8 @@ const App: React.FC = () => {
         />;
       case 'history':
         return <MatchHistory matches={matches} />;
+      case 'players':
+        return <PlayersView />;
       case 'home':
       default:
         return <Home 
@@ -217,6 +245,7 @@ const App: React.FC = () => {
           onStartScoring={handleStartScoring}
           onEditMatch={setEditingMatch}
           onDeleteMatch={handleDeleteMatch}
+          onNavigate={handleNavigate}
         />;
     }
   }

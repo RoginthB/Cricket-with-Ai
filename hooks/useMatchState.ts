@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { MatchState, Ball, Over, Player, Team, Innings } from '../types';
+import { MatchState, Ball, Over, Player, Team, Innings, WicketDetails } from '../types';
 
 interface StateHistory {
     past: MatchState[];
@@ -20,15 +20,8 @@ export const useMatchState = (initialState: MatchState, onStateChange: (newState
 
     // Effect to notify parent component on state changes for persistence
     useEffect(() => {
-        // Only notify if the state has genuinely changed
         onStateChange(history.present);
     }, [history.present, onStateChange]);
-
-    // Effect to sync with parent if the initial state prop changes
-    useEffect(() => {
-        setHistory({ past: [], present: initialState, future: [] });
-    }, [JSON.stringify(initialState)]);
-
 
     const undo = useCallback(() => {
         setHistory(h => {
@@ -60,8 +53,9 @@ export const useMatchState = (initialState: MatchState, onStateChange: (newState
         setHistory(h => {
             const newPresent = newStateFn(h.present);
             if (JSON.stringify(newPresent) === JSON.stringify(h.present)) return h;
+            const newPast = [...h.past, h.present];
             return {
-                past: [...h.past, h.present],
+                past: newPast,
                 present: newPresent,
                 future: [],
             };
@@ -173,112 +167,185 @@ export const useMatchState = (initialState: MatchState, onStateChange: (newState
         });
     }, [updateState]);
 
-    const recordBall = useCallback((ballData: Partial<Ball> & { runs: number; isWicket: boolean }) => {
+    const recordBall = useCallback((ballData: Partial<Ball> & { runs: number }) => {
         updateState(prevState => {
             if (prevState.isMatchOver || prevState.isInningsBreak || prevState.nextActionRequired) return prevState;
             const newState = JSON.parse(JSON.stringify(prevState));
             const maxWickets = newState.playersPerTeam - 1;
+
             const currentInningsData = newState.innings[newState.currentInnings - 1] as Innings;
+            const { battingTeam, bowlingTeam } = currentInningsData;
+            
             let currentOver = currentInningsData.overs.slice(-1)[0];
             if (!currentOver) {
                 currentOver = { overNumber: 1, balls: [] };
                 currentInningsData.overs.push(currentOver);
             }
-            const fullBallData: Ball = { ...ballData, bowlerId: newState.currentBowler.id, batsmanId: newState.striker.id, isExtra: ballData.isExtra ?? false, };
-            if(!ballData.extraType){
+
+            const fullBallData: Ball = { 
+                ...ballData,
+                isWicket: ballData.isWicket ?? false,
+                isExtra: ballData.isExtra ?? false,
+                bowlerId: newState.currentBowler.id, 
+                batsmanId: newState.striker.id,
+            };
+
+            // --- SCORE & STATS LOGIC ---
+            let runsForTeam = 0;
+            let runsForBatsman = 0;
+            let isLegalDelivery = !fullBallData.isExtra || fullBallData.extraType === 'Nb';
+            let ballsFaced = isLegalDelivery ? 1 : 0;
+
+            if (fullBallData.isExtra) {
+                switch(fullBallData.extraType) {
+                    case 'Wd':
+                        runsForTeam = 1 + (fullBallData.extraRuns || 0);
+                        break;
+                    case 'Nb':
+                        runsForTeam = 1 + fullBallData.runs;
+                        runsForBatsman = fullBallData.runs;
+                        break;
+                    case 'B':
+                    case 'Lb':
+                        runsForTeam = fullBallData.runs;
+                        break;
+                }
+            } else {
+                runsForTeam = fullBallData.runs;
+                runsForBatsman = fullBallData.runs;
+            }
+            
+            battingTeam.score += runsForTeam;
+            
+            const striker = battingTeam.players.find((p: Player) => p.id === newState.striker.id)!;
+            striker.balls += ballsFaced;
+            striker.runs += runsForBatsman;
+            if (ballData.boundary === 4) striker.fours++;
+            if (ballData.boundary === 6) striker.sixes++;
+
+            const bowler = bowlingTeam.players.find((p: Player) => p.id === newState.currentBowler.id)!;
+            bowler.runsConceded += runsForTeam;
+
+            if (isLegalDelivery) {
                 currentOver.balls.push(fullBallData);
             }
-            currentInningsData.battingTeam.score += ballData.runs;
-            if (ballData.extraType) {
-                currentInningsData.battingTeam.score += 1;
-            }
-            const striker = currentInningsData.battingTeam.players.find((p: Player) => p.id === newState.striker.id)!;
-            if(!ballData.extraType || ballData.extraType === 'Nb'){
-                 striker.balls += 1;
-            }
-            if(!ballData.isExtra){
-                striker.runs += ballData.runs;
-                if (ballData.boundary === 4) striker.fours++;
-                if (ballData.boundary === 6) striker.sixes++;
-            }
-            const bowler = newState.teams.find((t: Team) => t.id === currentInningsData.bowlingTeam.id)!.players.find((p: Player) => p.id === newState.currentBowler.id)!;
-            bowler.runsConceded += ballData.runs;
-             if (ballData.extraType) {
-                bowler.runsConceded += 1;
-             }
-            if (ballData.isWicket) {
-                striker.isOut = true;
-                striker.outMethod = `b ${bowler.name}`;
-                currentInningsData.battingTeam.wickets += 1;
-                bowler.wickets += 1;
-                currentInningsData.fallOfWickets.push({ runs: currentInningsData.battingTeam.score, wicket: currentInningsData.battingTeam.wickets, over: currentInningsData.battingTeam.overs, player: striker.name, });
-                if (currentInningsData.battingTeam.wickets < maxWickets) {
+
+            // --- WICKET LOGIC ---
+            if (fullBallData.isWicket) {
+                const { wicketDetails } = fullBallData;
+                if (!wicketDetails) throw new Error("Wicket details are missing");
+
+                const batsmanOut = battingTeam.players.find((p: Player) => p.id === wicketDetails.batsmanOutId)!;
+                batsmanOut.isOut = true;
+                
+                let outMethod = '';
+                switch(wicketDetails.method) {
+                    case 'Caught':
+                        const fielder = bowlingTeam.players.find(p => p.id === wicketDetails.fielderId)!;
+                        outMethod = `c ${fielder.name} b ${bowler.name}`;
+                        bowler.wickets++;
+                        break;
+                    case 'Caught & Bowled':
+                        outMethod = `c & b ${bowler.name}`;
+                        bowler.wickets++;
+                        break;
+                    case 'Bowled':
+                        outMethod = `b ${bowler.name}`;
+                        bowler.wickets++;
+                        break;
+                    case 'LBW':
+                        outMethod = `lbw b ${bowler.name}`;
+                        bowler.wickets++;
+                        break;
+                    case 'Stumped':
+                        const keeper = bowlingTeam.players.find(p => p.id === wicketDetails.fielderId)!;
+                        outMethod = `st ${keeper.name} b ${bowler.name}`;
+                        bowler.wickets++;
+                        break;
+                    case 'Hit Wicket':
+                        outMethod = `hit wicket b ${bowler.name}`;
+                        bowler.wickets++;
+                        break;
+                    case 'Run Out':
+                        outMethod = 'run out';
+                        if (wicketDetails.fielderId) {
+                             const runOutFielder = bowlingTeam.players.find(p => p.id === wicketDetails.fielderId)!;
+                             outMethod += ` (${runOutFielder.name})`
+                        }
+                        break;
+                }
+                batsmanOut.outMethod = outMethod;
+                battingTeam.wickets++;
+                currentInningsData.fallOfWickets.push({ runs: battingTeam.score, wicket: battingTeam.wickets, over: battingTeam.overs, player: batsmanOut.name, });
+                
+                if (battingTeam.wickets < maxWickets) {
                     newState.nextActionRequired = 'SELECT_NEXT_BATSMAN';
+                    if (wicketDetails.batsmanOutId === newState.striker.id) {
+                         // The new batsman will take strike, non-striker stays.
+                    } else { // non-striker is out
+                        newState.nonStriker = null; // will be replaced by new batsman
+                    }
                 }
             }
-            if (ballData.runs % 2 !== 0 && !ballData.isExtra) {
+
+            // --- OVER & BATSMAN ROTATION LOGIC ---
+            const runsForRotation = fullBallData.extraType === 'B' || fullBallData.extraType === 'Lb' ? fullBallData.runs : runsForBatsman;
+            if (runsForRotation % 2 !== 0) {
                 [newState.striker, newState.nonStriker] = [newState.nonStriker, newState.striker];
             }
-            const isLastBallOfOver = currentOver.balls.length === 6 && !ballData.extraType;
+            
+            const isLastBallOfOver = currentOver.balls.length === 6;
+
             if (isLastBallOfOver) {
                 [newState.striker, newState.nonStriker] = [newState.nonStriker, newState.striker];
-                const overAsString = (Math.floor(currentInningsData.battingTeam.overs) + 1).toFixed(1);
-                currentInningsData.battingTeam.overs = parseFloat(overAsString);
+                battingTeam.overs = Math.floor(battingTeam.overs) + 1;
+                bowler.overs = Math.floor(bowler.overs) + 1;
                 currentInningsData.overs.push({ overNumber: currentInningsData.overs.length + 1, balls: [] });
-                bowler.overs = parseFloat((bowler.overs + 0.5).toFixed(1));
-                 if (String(bowler.overs).endsWith('.6')) {
-                    bowler.overs = Math.ceil(bowler.overs);
-                 }
-                // Don't auto-select next bowler
-                if (!newState.nextActionRequired) { // only if not already waiting for next batsman
+                
+                if (!newState.nextActionRequired) {
                     newState.nextActionRequired = 'SELECT_BOWLER';
                 }
-            } else if (!ballData.extraType) {
-                 currentInningsData.battingTeam.overs = parseFloat((Math.floor(currentInningsData.battingTeam.overs) + currentOver.balls.length / 10).toFixed(1));
+            } else if (isLegalDelivery) {
+                 battingTeam.overs = parseFloat((Math.floor(battingTeam.overs) + currentOver.balls.length / 10).toFixed(1));
                  bowler.overs = parseFloat((Math.floor(bowler.overs) + currentOver.balls.length / 10).toFixed(1));
             }
-            const isAllOut = currentInningsData.battingTeam.wickets >= maxWickets;
-            const isOversFinished = currentInningsData.battingTeam.overs >= newState.maxOvers;
-            const isTargetReached = newState.target && currentInningsData.battingTeam.score >= newState.target;
+
+            // --- MATCH/INNINGS END LOGIC ---
+            const isAllOut = battingTeam.wickets >= maxWickets;
+            const isOversFinished = battingTeam.overs >= newState.maxOvers;
+            const isTargetReached = newState.target && battingTeam.score >= newState.target;
             const inningsOver = isAllOut || isOversFinished;
+
             if (newState.currentInnings === 1 && inningsOver) {
-                newState.target = currentInningsData.battingTeam.score + 1;
+                newState.target = battingTeam.score + 1;
                 newState.isInningsBreak = true;
-                newState.nextActionRequired = null; // Clear action on innings break
+                newState.nextActionRequired = null;
             } else if (newState.currentInnings === 2 && (inningsOver || isTargetReached)) {
                 newState.isMatchOver = true;
                 newState.status = 'completed';
-                newState.nextActionRequired = null; // Clear action on match end
+                newState.nextActionRequired = null;
                 if(isTargetReached) {
-                    newState.matchWinner = currentInningsData.battingTeam;
-                } else if (newState.target && currentInningsData.battingTeam.score < newState.target - 1) {
-                    newState.matchWinner = currentInningsData.bowlingTeam;
+                    newState.matchWinner = battingTeam;
+                } else if (newState.target && battingTeam.score < newState.target - 1) {
+                    newState.matchWinner = bowlingTeam;
                 }
             }
-            const battingTeamIndex = newState.teams.findIndex((t: Team) => t.id === currentInningsData.battingTeam.id)!;
-            newState.teams[battingTeamIndex] = currentInningsData.battingTeam;
-            const bowlingTeamIndex = newState.teams.findIndex((t: Team) => t.id === currentInningsData.bowlingTeam.id)!;
-            const bowlerTeam = newState.teams[bowlingTeamIndex];
-            const bowlerInTeamIndex = bowlerTeam.players.findIndex((p: Player) => p.id === bowler.id);
-            if (bowlerInTeamIndex !== -1) {
-                bowlerTeam.players[bowlerInTeamIndex] = bowler;
-            }
-            currentInningsData.bowlingTeam = bowlerTeam;
-            const finalBattingTeam = currentInningsData.battingTeam;
-            const finalBowlingTeam = currentInningsData.bowlingTeam;
-            // Only update players if they exist
+            
+            // --- SYNC STATE ---
+            const battingTeamIndex = newState.teams.findIndex((t: Team) => t.id === battingTeam.id)!;
+            newState.teams[battingTeamIndex] = battingTeam;
+            const bowlingTeamIndex = newState.teams.findIndex((t: Team) => t.id === bowlingTeam.id)!;
+            newState.teams[bowlingTeamIndex] = bowlingTeam;
+            
+            // Re-assign player objects from the source of truth (teams array)
             if (newState.striker) {
-                const updatedStriker = finalBattingTeam.players.find(p => p.id === newState.striker.id);
-                if (updatedStriker) newState.striker = updatedStriker;
+                newState.striker = battingTeam.players.find(p => p.id === newState.striker.id)!;
             }
             if (newState.nonStriker) {
-                const updatedNonStriker = finalBattingTeam.players.find(p => p.id === newState.nonStriker.id);
-                if (updatedNonStriker) newState.nonStriker = updatedNonStriker;
+                newState.nonStriker = battingTeam.players.find(p => p.id === newState.nonStriker.id)!;
             }
-             if (newState.currentBowler) {
-                const updatedBowler = finalBowlingTeam.players.find(p => p.id === newState.currentBowler.id);
-                if (updatedBowler) newState.currentBowler = updatedBowler;
-            }
+            newState.currentBowler = bowlingTeam.players.find(p => p.id === newState.currentBowler.id)!;
+            
             return newState;
         });
     }, [updateState]);

@@ -19,14 +19,24 @@ export interface Over {
   overNumber: number;
 }
 
+export type DismissalMethod = 'Bowled' | 'Caught' | 'LBW' | 'Run Out' | 'Stumped' | 'Hit Wicket' | 'Caught & Bowled';
+
+export interface WicketDetails {
+  method: DismissalMethod;
+  fielderId?: number;
+  batsmanOutId: number;
+}
+
 export interface Ball {
-  runs: number;
+  runs: number; // For normal balls: runs off bat. For Nb: runs off bat. For Byes/Leg-byes: number of extras.
   isWicket: boolean;
+  wicketDetails?: WicketDetails;
   isExtra: boolean;
-  extraType?: 'Wd' | 'Nb';
+  extraType?: 'Wd' | 'Nb' | 'B' | 'Lb';
+  extraRuns?: number; // For wides that go to the boundary, extraRuns = 4 (total 5).
   boundary?: 4 | 6;
   bowlerId: number;
-  batsmanId: number;
+  batsmanId: number; // The batsman on strike for this ball.
 }
 
 export interface Team {
@@ -74,6 +84,7 @@ export interface MatchState {
   isInningsBreak?: boolean;
   target: number | null;
   nextActionRequired: 'SELECT_OPENERS' | 'SELECT_NEXT_BATSMAN' | 'SELECT_BOWLER' | null;
+  statsProcessed?: boolean; // To track if stats have been updated from this match
 }
 
 export interface ScheduledMatch {
@@ -105,4 +116,29 @@ export interface CustomTeam {
   id: string;
   name: string;
   players: PlayerRosterItem[];
+}
+
+export interface BestBowling {
+  wickets: number;
+  runs: number;
+}
+
+export interface PlayerStats {
+  name: string; // Keyed by player name
+  matches: number;
+  // Batting
+  inningsBatted: number;
+  runsScored: number;
+  ballsFaced: number;
+  highestScore: number;
+  notOuts: number;
+  fifties: number;
+  hundreds: number;
+  fours: number;
+  sixes: number;
+  // Bowling
+  oversBowled: number; // Stored as a decimal like 10.5 for 10 overs and 5 balls
+  runsConceded: number;
+  wicketsTaken: number;
+  bestBowling: BestBowling | null;
 }

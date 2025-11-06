@@ -6,15 +6,16 @@ interface ScoreboardProps {
   matchState: MatchState;
 }
 
-const Scoreboard: React.FC<ScoreboardProps> = ({ matchState }) => {
-  const { innings, currentInnings, striker, nonStriker, currentBowler, target, maxOvers } = matchState;
+export const Scoreboard: React.FC<ScoreboardProps> = ({ matchState }) => {
+  const { innings, currentInnings, striker, nonStriker, currentBowler, target, maxOvers, description, playersPerTeam } = matchState;
   const currentInningsData = innings[currentInnings - 1];
+  const firstInnings = innings[0];
 
   if (!currentInningsData) {
     return <div>Loading match...</div>;
   }
 
-  const { battingTeam, overs } = currentInningsData;
+  const { battingTeam, overs, fallOfWickets } = currentInningsData;
   const lastOver = overs[overs.length - 1];
 
   const convertOversToDecimal = (overs: number): number => {
@@ -39,6 +40,10 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ matchState }) => {
 
 
   const renderBall = (ball: any, index: number) => {
+    // Defensive check to prevent rendering invalid data that might be causing artifacts.
+    if (typeof ball !== 'object' || ball === null || typeof ball.runs !== 'number') {
+      return null;
+    }
     let content: string | number = ball.runs;
     if (ball.isWicket) content = 'W';
     else if (ball.extraType) content = ball.extraType;
@@ -75,23 +80,37 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ matchState }) => {
   };
 
   return (
-    <div className="bg-slate-800 rounded-xl shadow-lg p-4 sm:p-6">
-      {/* Team Scores */}
-      <div className="space-y-3 mb-4">
-        {matchState.teams.map((team) => (
-            <div key={team.id} className="flex justify-between items-center bg-slate-900/50 p-3 rounded-lg">
-                <h2 className="text-lg sm:text-xl font-bold text-white">{team.name}</h2>
-                <div className="text-right">
-                    <p className="text-xl sm:text-2xl font-extrabold tracking-tighter">
-                        {team.score}
-                        <span className="text-lg sm:text-xl text-gray-400 font-medium">/{team.wickets}</span>
-                    </p>
-                    <p className="text-xs sm:text-sm text-gray-300">({team.overs.toFixed(1)} Overs)</p>
-                </div>
-            </div>
-        ))}
+    
+    <div className="bg-slate-800 rounded-xl shadow-lg">
+      {/* Match Header */}
+      <div className="p-4 border-b border-slate-700">
+        <h2 className="text-base sm:text-lg font-bold text-white truncate" title={description}>{description}</h2>
+        <p className="text-xs sm:text-sm text-gray-400">{maxOvers} Overs & {playersPerTeam - 1} Wickets Match</p>
       </div>
 
+      <div className="p-4 sm:p-6">
+        {/* Batting Team Score */}
+        <div className="bg-slate-900/50 p-4 rounded-lg mb-4">
+            <div className="flex justify-between items-center">
+                <h2 className="text-xl sm:text-2xl font-bold text-white">{battingTeam.name}</h2>
+                <div className="text-right">
+                    <p className="text-3xl sm:text-4xl font-extrabold tracking-tighter">
+                        {battingTeam.score}
+                        <span className="text-2xl sm:text-3xl text-gray-400 font-medium">/{battingTeam.wickets}</span>
+                    </p>
+                    <p className="text-sm sm:text-base text-gray-300">({battingTeam.overs.toFixed(1)} Overs)</p>
+                </div>
+            </div>
+        </div>
+        
+        {/* Chase Information */}
+        {currentInnings === 2 && firstInnings && (
+            <div className="text-center text-sm text-gray-300 mb-4 -mt-2">
+                <p>
+                    <span className="font-semibold text-gray-200">{firstInnings.battingTeam.name}</span>: <span className="font-bold">{firstInnings.battingTeam.score}/{firstInnings.battingTeam.wickets}</span>
+                </p>
+            </div>
+        )}
 
        {/* Rates Display */}
        <div className="border-t border-b border-slate-700 py-3 my-4 grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
@@ -154,8 +173,29 @@ const Scoreboard: React.FC<ScoreboardProps> = ({ matchState }) => {
             {lastOver && lastOver.balls.map(renderBall)}
         </div>
       </div>
+      
+      {/* Fall of Wickets Section */}
+      {fallOfWickets && fallOfWickets.length > 0 && (
+        <div className="border-t border-slate-700 mt-4 pt-4">
+            <p className="font-semibold text-gray-400 text-sm mb-2">Fall of Wickets:</p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-300">
+                {fallOfWickets.map(fow => {
+                    // Defensive check to prevent rendering invalid data from fall of wickets array.
+                    if (typeof fow !== 'object' || fow === null || typeof fow.wicket !== 'number') {
+                        return null;
+                    }
+                    return (
+                        <span key={fow.wicket}>
+                            <span className="font-semibold text-white">{fow.wicket}-{fow.runs}</span>
+                            <span className="text-gray-400"> ({fow.player}, {fow.over.toFixed(1)})</span>
+                        </span>
+                    );
+                })}
+            </div>
+        </div>
+      )}
+    </div>
     </div>
   );
 };
 
-export default Scoreboard;

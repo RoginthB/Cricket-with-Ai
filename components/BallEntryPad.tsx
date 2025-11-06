@@ -1,8 +1,10 @@
 
+
 import React from 'react';
 
 interface BallEntryPadProps {
   onRecordBall: (ballData: any) => void;
+  onAdvancedEntry: (type: 'wicket' | 'wide' | 'noball' | 'byes') => void;
   disabled: boolean;
 }
 
@@ -11,22 +13,22 @@ const ActionButton: React.FC<{
   children: React.ReactNode;
   className?: string;
   disabled?: boolean;
-}> = ({ onClick, children, className = '', disabled }) => (
+  fullWidth?: boolean;
+}> = ({ onClick, children, className = '', disabled, fullWidth = false }) => (
   <button
     onClick={onClick}
     disabled={disabled}
-    className={`w-full h-14 sm:h-16 text-base sm:text-lg font-bold rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 flex items-center justify-center
-      ${className} 
+    className={`h-14 sm:h-16 text-base sm:text-lg font-bold rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 flex items-center justify-center
+      ${className}
+      ${fullWidth ? 'col-span-3' : ''}
       ${disabled ? 'bg-gray-600 cursor-not-allowed' : 'hover:scale-105 active:scale-95'}`}
   >
     {children}
   </button>
 );
 
-const BallEntryPad: React.FC<BallEntryPadProps> = ({ onRecordBall, disabled }) => {
+const BallEntryPad: React.FC<BallEntryPadProps> = ({ onRecordBall, onAdvancedEntry, disabled }) => {
   const runs = [0, 1, 2, 3, 4, 6];
-  const extras = ['Wd', 'Nb'];
-  const wicket = 'OUT';
 
   return (
     <div className="bg-slate-800 rounded-xl shadow-lg p-4 sm:p-6">
@@ -46,22 +48,34 @@ const BallEntryPad: React.FC<BallEntryPadProps> = ({ onRecordBall, disabled }) =
       </div>
 
       <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-2 sm:mt-3">
-        {extras.map((extra) => (
-          <ActionButton
-            key={extra}
-            onClick={() => onRecordBall({ runs: 1, isWicket: false, isExtra: true, extraType: extra })}
-            className="bg-yellow-500 text-slate-900 focus:ring-yellow-400"
-            disabled={disabled}
-          >
-            {extra}
-          </ActionButton>
-        ))}
          <ActionButton
-          onClick={() => onRecordBall({ runs: 0, isWicket: true, isExtra: false })}
-          className="bg-red-600 text-white focus:ring-red-500"
+          onClick={() => onAdvancedEntry('wide')}
+          className="bg-yellow-500 text-slate-900 focus:ring-yellow-400"
           disabled={disabled}
         >
-          {wicket}
+          Wide
+        </ActionButton>
+        <ActionButton
+          onClick={() => onAdvancedEntry('noball')}
+          className="bg-yellow-500 text-slate-900 focus:ring-yellow-400"
+          disabled={disabled}
+        >
+          No Ball
+        </ActionButton>
+         <ActionButton
+          onClick={() => onAdvancedEntry('byes')}
+          className="bg-yellow-500 text-slate-900 focus:ring-yellow-400"
+          disabled={disabled}
+        >
+          B/LB
+        </ActionButton>
+        <ActionButton
+          onClick={() => onAdvancedEntry('wicket')}
+          className="bg-red-600 text-white focus:ring-red-500"
+          disabled={disabled}
+          fullWidth
+        >
+          Wicket
         </ActionButton>
       </div>
     </div>

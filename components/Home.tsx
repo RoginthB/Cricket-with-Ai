@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MatchState, CustomTeam } from '../types';
-import { PlusIcon, CricketBallIcon, PencilIcon, TrashIcon, UsersIcon } from './Icons';
+import { CricketBallIcon, PencilIcon, TrashIcon, UsersIcon, WandIcon, CircleIcon } from './Icons';
 import TeamEditorModal from './TeamEditorModal';
 
 interface HomeProps {
@@ -9,6 +9,7 @@ interface HomeProps {
   onStartScoring: (matchId: string) => void;
   onEditMatch: (match: MatchState) => void;
   onDeleteMatch: (matchId: string) => void;
+  onNavigate: (view: string) => void;
 }
 
 const MatchCard: React.FC<{ 
@@ -129,7 +130,7 @@ const CreateMatchModal: React.FC<{
     );
 };
 
-const Home: React.FC<HomeProps> = ({ matches, onCreateMatch, onStartScoring, onEditMatch, onDeleteMatch }) => {
+const Home: React.FC<HomeProps> = ({ matches, onCreateMatch, onStartScoring, onEditMatch, onDeleteMatch, onNavigate }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isTeamEditorOpen, setIsTeamEditorOpen] = useState(false);
   const [teamUpdateTimestamp, setTeamUpdateTimestamp] = useState(Date.now());
@@ -151,15 +152,19 @@ const Home: React.FC<HomeProps> = ({ matches, onCreateMatch, onStartScoring, onE
             onTeamsUpdated={() => setTeamUpdateTimestamp(Date.now())}
         />
       
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
             <h1 className="text-3xl sm:text-4xl font-bold text-white">Dashboard</h1>
-            <div className="flex items-center gap-3">
-                 <button onClick={() => setIsTeamEditorOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-5 rounded-lg flex items-center gap-2 transition-colors">
-                    <UsersIcon className="w-6 h-6" />
+            <div className="flex items-center gap-3 flex-wrap">
+                 <button onClick={() => setIsTeamEditorOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition-colors">
+                    <WandIcon className="w-5 h-5" />
                     Manage Teams
                 </button>
-                <button onClick={() => setIsModalOpen(true)} className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-5 rounded-lg flex items-center gap-2 transition-colors">
-                    <PlusIcon className="w-6 h-6" />
+                <button onClick={() => onNavigate('players')} className="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition-colors">
+                    <UsersIcon className="w-5 h-5" />
+                    Player Stats
+                </button>
+                <button onClick={() => setIsModalOpen(true)} className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 transition-colors">
+                    <CircleIcon className="w-3 h-3 mr-1" />
                     Create Match
                 </button>
             </div>
